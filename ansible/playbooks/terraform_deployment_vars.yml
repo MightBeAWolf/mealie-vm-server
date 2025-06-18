@@ -1,0 +1,9 @@
+---
+- hosts: "{{ lookup('env', 'DEPLOYMENT') }}"
+  gather_facts: false
+  tasks:
+    - name: "Deploy the terraform variables from the ansible inventory"
+      ansible.builtin.template:
+        src: deployment.tfvars.j2
+        dest: "{{ (playbook_dir ~ '../../../tofu/deployment.tfvars') | realpath }}"
+      delegate_to: localhost

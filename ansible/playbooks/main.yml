@@ -1,0 +1,97 @@
+---
+- hosts: "{{ lookup('env', 'DEPLOYMENT') }}"
+  become: true
+  roles:
+    - ldap_client
+    - alloy
+    - ssl_certbot_cloudflare
+  vars:
+    main_service: mealie
+    podman_storage: "/var/lib/containers/storage/volumes"
+    podman_pod_build_images: []
+    podman_pod_spec: 
+      name: "{{ main_service }}_pod"
+      ports:
+        - "443:9000"
+      containers:
+        - name: "mealie"
+          image_url: docker.io/hkotel/mealie
+          image_version: latest
+          volumes:
+            - name: mealie
+              target: /app/data
+            - name: certbot
+              target: /ssl:ro
+            - src: /etc/timezone
+              target: /etc/timezone:ro
+            - src: /etc/localtime
+              target: /etc/localtime:ro
+          envs:
+            ALLOW_SIGNUP: "true"
+            BASE_URL: "https://{{ inventory_hostname }}"
+            # TLS/SSL
+            TLS_CERTIFICATE_PATH: /ssl/live/{{ inventory_hostname }}/fullchain.pem
+            TLS_PRIVATE_KEY_PATH: /ssl/live/{{ inventory_hostname }}/privkey.pem
+            # Database Settings
+            DB_ENGINE: postgres
+            POSTGRES_USER: mealie
+            POSTGRES_PASSWORD: "{{ lookup('env', 'MEALIE_DB_PASSWORD') }}"
+            POSTGRES_SERVER: postgres
+            POSTGRES_PORT: 5432
+            POSTGRES_DB: mealie
+            # LDAP Config
+            LDAP_AUTH_ENABLED: "True"
+            LDAP_SERVER_URL: ldaps://ldap.local.wolfbox.dev
+            LDAP_BASE_DN: "dc=wolfbox,dc=dev"
+            LDAP_QUERY_BIND: "{{ lookup('env', 'OPENLDAP_MEALIE_DN') }}"
+            LDAP_QUERY_PASSWORD: "{{ lookup('env', 'OPENLDAP_MEALIE_DN_PASSWORD') }}"
+            LDAP_NAME_ATTRIBUTE: "cn"
+            LDAP_USER_FILTER: '(&(objectClass=posixAccount)(uidNumber>=1000))'
+            LDAP_ADMIN_FILTER: "{{ lookup('env', 'OPENLDAP_MEALIE_ADMIN_QUERY') }}"
+          systemd:
+            requires: ['postgres_podman.service']
+          args: []
+
+        - name: postgres
+          image_url: docker.io/postgres
+          image_version: '15'
+          volumes:
+            - name: mealie-pgdata
+              target: /var/lib/postgresql/data
+          envs:
+            POSTGRES_PASSWORD: "{{ lookup('env', 'MEALIE_DB_PASSWORD') }}"
+            POSTGRES_USER: mealie
+            PGUSER: mealie
+
+  tasks:
+    - name: Ensure .ssh directory exists for the user
+      ansible.builtin.file:
+        path: "{{ lookup('env', 'HOME') }}/.ssh"
+        state: directory
+        owner: "{{ lookup('env', 'USER') }}"
+        group: "{{ lookup('env', 'USER') }}"
+        mode: '0700'
+
+    - name: Add SSH key to authorized_keys
+      ansible.posix.authorized_key:
+        user: "{{ lookup('env', 'USER') }}"
+        key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+        state: present
+
+    - ansible.builtin.include_role:
+        name: podman_pod
+
+    - name: "Ensure the services have been started"
+      ansible.builtin.systemd:
+        name: "{{ container }}_podman.service"
+        enabled: true
+        state: started
+      loop: "{{ podman_pod_spec.containers | map(attribute='name') | list }}"
+      loop_control:
+        loop_var: container
+      register: enable_systemd_services
+
+    - name: Pause for 10 seconds for container to come up
+      ansible.builtin.pause:
+        seconds: 10
+      when: enable_systemd_services.changed

@@ -1,0 +1,65 @@
+[tools]
+python = "3.13"
+node = "latest"
+ruff = "latest"
+"npm:ansible-language-server" = "latest"
+
+[env]
+DEPLOYMENT="development"
+ANSIBLE_FORCE_COLOR = "True"
+ANSIBLE_CONFIG="ansible/ansible.cfg"
+_.python.venv = { path = ".venv" }
+
+[tasks."setup:venv"]
+dir = "{{ config_root }}"
+run = """
+if [[ ! -e .venv ]]; then
+  python -m venv .venv --upgrade-deps
+fi
+for req_file in *requirements.txt; do
+  if [[ -e "$req_file" ]]; then
+    source .venv/bin/activate
+    pip install -r "$req_file"
+  fi
+done
+"""
+
+
+[tasks."setup:inventory"]
+dir="{{ config_root }}/ansible"
+run="""
+op run --env-file ../secrets.env -- ansible-playbook --diff \
+  playbooks/terraform_deployment_vars.yml
+"""
+sources = ['ansible/playbooks/templates/deployment.tfvars.j2', 'inventory.yml']
+outputs = ['tofu/deployment.tfvars']
+
+[tasks."setup:tofu"]
+depends = ["setup:inventory"]
+dir="{{ config_root }}/tofu"
+run="tofu init"
+sources = ["tofu/main.tf"]
+outputs = ['tofu/.terraform.lock.hcl']
+
+[tasks."setup:ansible"]
+dir="{{ config_root }}/ansible"
+run="""
+ansible-galaxy install -fr requirements.yml
+"""
+
+[tasks.deploy]
+depends = ["setup:tofu"]
+dir="{{ config_root }}/tofu"
+run="""
+op run --env-file ../secrets.env -- tofu apply \
+  --var-file ./deployment.tfvars \
+  -auto-approve
+"""
+
+[tasks.provision]
+depends = ["setup:ansible"]
+dir="{{ config_root }}/ansible"
+run="""
+op run --env-file ../secrets.env -- ansible-playbook \
+  playbooks/main.yml
+"""

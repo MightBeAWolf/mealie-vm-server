@@ -1,0 +1,33 @@
+all:
+  vars:
+    ansible_user: "{{ lookup('env', 'TF_VAR_node_user') }}"
+    host_api_uri: https://pve.local.wolfbox.dev:8006/api2/json
+    proxmox_node_id: pve
+    from_template: debian-12-base
+    desc: >-
+      The Mealie server, deployed from
+      https://github.com/MightBeAWolf/mealie-vm-server
+    gateway: 192.168.40.21
+    cidr: /21
+    firewall:
+      options:
+        enable: 1
+        log_level_in: info
+      rules:
+        - "IN SSH(ACCEPT) -source +dc/home-lab -log nolog"
+        - "IN HTTPS(ACCEPT) -source +dc/home-lab -log nolog"
+  children:
+
+    production:
+      hosts:
+        mealie.wolfbox.dev:
+          ansible_host: 192.168.41.14
+          id: 508
+          tags: debian_12,service,infrastructure_as_code,production
+
+    development:
+      hosts:
+        mealiedev.wolfbox.dev:
+          ansible_host: 192.168.42.14
+          id: 1008
+          tags: debian_12,service,infrastructure_as_code,development
