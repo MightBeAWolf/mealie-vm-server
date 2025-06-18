@@ -48,6 +48,11 @@
             LDAP_NAME_ATTRIBUTE: "cn"
             LDAP_USER_FILTER: '(&(objectClass=posixAccount)(uidNumber>=1000))'
             LDAP_ADMIN_FILTER: "{{ lookup('env', 'OPENLDAP_MEALIE_ADMIN_QUERY') }}"
+            # OpenLDAP
+            OPENAI_BASE_URL: http://wolfden.local.wolfbox.dev:11434/v1
+            # API Key required, but ignored when using ollama
+            OPENAI_API_KEY: 12345
+            OPENAI_MODEL: gemma3:27b
           systemd:
             requires: ['postgres_podman.service']
           args: []
