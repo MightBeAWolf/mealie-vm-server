@@ -39,16 +39,19 @@ All tasks are defined in [`mise.toml`](./mise.toml):
 ## 🚀 Usage
 
 ```bash
-# Step 1: Bootstrap environment
+# Step 1: Install the dev tools
+mise install
+
+# Step 2: Bootstrap environment
 mise run setup:venv
 
-# Step 2: Generate Terraform vars
+# Step 3: Generate Terraform vars
 mise run setup:inventory
 
-# Step 3: Initialize OpenTofu
+# Step 4: Initialize OpenTofu
 mise run setup:tofu
 
-# Step 4: Apply infrastructure (Note this will also kick off an asible run.)
+# Step 5: Apply infrastructure (Note this will also kick off an asible run.)
 mise run deploy
 
 # Later update the configuration defined by ansible, run
