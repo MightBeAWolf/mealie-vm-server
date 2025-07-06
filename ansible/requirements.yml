@@ -6,7 +6,7 @@ roles:
   - name: ldap_client
     src: https://gitea.local.wolfbox.dev/gwolf/ansible_role_ldap_client/archive/main.tar.gz
   - name: alloy
-    src: https://gitea.local.wolfbox.dev/gwolf/ansible_role_ssl_certbot_cloudflare/archive/main.tar.gz
+    src: https://gitea.local.wolfbox.dev/gwolf/ansible_role_alloy/archive/main.tar.gz
   - name: podman_pod
     src: https://gitea.local.wolfbox.dev/gwolf/ansible_role_podman_pod/archive/main.tar.gz
   - name: ssl_certbot_cloudflare
